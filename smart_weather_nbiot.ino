@@ -15,7 +15,7 @@
 float Batt = 0.0;
 
 HardwareSerial modbus(2);
-//HardwareSerial_NB_BC95 AISnb;
+HardwareSerial_NB_BC95 AISnb;
 BluetoothSerial SerialBT;
 // instantiate ModbusMaster object
 ModbusMaster node;
@@ -46,13 +46,14 @@ struct pm2510_7in1
 pm2510_7in1 smartsensor ;
 
 // NB
-//signal meta ;
-//String imsi = "";
-//String imei = "";
+signal meta ;
+String imsi = "";
+String imei = "";
 
-unsigned long currentMillis;
-unsigned long previousMillis;
-const unsigned long interval = 180000; // Interval Time
+unsigned long currentMillis1, currentMillis2;
+unsigned long previousMillis1, previousMillis2;
+const unsigned long interval1 = 60000; // Interval Time
+const unsigned long interval2 =120000; // Interval Time
 
 void setup() {
   Serial.begin(115200);
@@ -60,19 +61,33 @@ void setup() {
   Serial.println();
   Serial.println(F("***********************************"));
   SerialBT.begin("Smart Sensor Station");
+  AISnb.debug = true;
+  AISnb.setupDevice(serverPort);
+  String ip1 = AISnb.getDeviceIP();
+  pingRESP pingR = AISnb.pingIP(serverIP);
+  deviceToken = AISnb.getNCCID();
 }
 
 void loop() {
-  readSensor();
-  delay(5000);
-  resetRain();
-//  currentMillis = millis();
-//  if (currentMillis - previousMillis >= interval)
-//  {
-//    //sendViaNBIOT();
-//    previousMillis = currentMillis;
-//  }
-  sleepProcess();
+  currentMillis1 = millis();
+  if (currentMillis1 - previousMillis1 >= interval1)
+  {
+    readSensor();
+    delay(1000);
+    sendViaNBIOT1();
+    delay(30000);
+    sendViaNBIOT2();
+    previousMillis1 = currentMillis1;
+  }
+  currentMillis2 = millis();
+  if (currentMillis2 - previousMillis2 >= interval2)
+  {
+    resetRain();
+    delay(2000);
+    sleepProcess();
+    previousMillis2 = currentMillis2;
+  }
+
 }
 
 void resetRain()
@@ -121,27 +136,27 @@ void readSensor()
 {
   modbus.begin(9600, SERIAL_8N1, 16, 17);
   delay(300);
-  //  smartsensor.pm2510PM2_5 = readModbus(ID_PM25, Address_PM2510[0]);
-  //  delay(10);
-  //  smartsensor.pm2510PM10 = readModbus(ID_PM25, Address_PM2510[1]);
-  //  delay(10);
-  //  smartsensor.pm2510temp = readModbus(ID_PM25, Address_PM2510[2]);
-  //  delay(10);
-  //  smartsensor.pm2510humi = readModbus(ID_PM25, Address_PM2510[3]);
-  //  delay(10);
-  //  Serial.println("---------------------------------------------------------");
-  //  Serial.print("PM 2.5 : ");  Serial.println(smartsensor.pm2510PM2_5);
-  //  Serial.print("PM 10 : ");  Serial.println(smartsensor.pm2510PM10);
-  //  Serial.print("Temperature : ");  Serial.println(((smartsensor.pm2510temp.toFloat() / 100) - 40));
-  //  Serial.print("Humidity : ");  Serial.println(smartsensor.pm2510humi.toFloat() / 100);
-  //  Serial.println("---------------------------------------------------------");
+  smartsensor.pm2510PM2_5 = readModbus(ID_PM25, Address_PM2510[0]);
+  delay(10);
+  smartsensor.pm2510PM10 = readModbus(ID_PM25, Address_PM2510[1]);
+  delay(10);
+  smartsensor.pm2510temp = readModbus(ID_PM25, Address_PM2510[2]);
+  delay(10);
+  smartsensor.pm2510humi = readModbus(ID_PM25, Address_PM2510[3]);
+  delay(10);
+  Serial.println("---------------------------------------------------------");
+  Serial.print("PM 2.5 : ");  Serial.println(smartsensor.pm2510PM2_5);
+  Serial.print("PM 10 : ");  Serial.println(smartsensor.pm2510PM10);
+  Serial.print("Temperature : ");  Serial.println(((smartsensor.pm2510temp.toFloat() / 100) - 40));
+  Serial.print("Humidity : ");  Serial.println(smartsensor.pm2510humi.toFloat() / 100);
+  Serial.println("---------------------------------------------------------");
 
-  //  SerialBT.println("---------------------------------------------------------");
-  //  SerialBT.print("PM 2.5 : ");  SerialBT.println(smartsensor.pm2510PM2_5);
-  //  SerialBT.print("PM 10 : ");  SerialBT.println(smartsensor.pm2510PM10);
-  //  SerialBT.print("Temperature : ");  SerialBT.println(((smartsensor.pm2510temp.toFloat() / 100) - 40));
-  //  SerialBT.print("Humidity : ");  SerialBT.println(smartsensor.pm2510humi.toFloat() / 100);
-  //  SerialBT.println("---------------------------------------------------------");
+  SerialBT.println("---------------------------------------------------------");
+  SerialBT.print("PM 2.5 : ");  SerialBT.println(smartsensor.pm2510PM2_5);
+  SerialBT.print("PM 10 : ");  SerialBT.println(smartsensor.pm2510PM10);
+  SerialBT.print("Temperature : ");  SerialBT.println(((smartsensor.pm2510temp.toFloat() / 100) - 40));
+  SerialBT.print("Humidity : ");  SerialBT.println(smartsensor.pm2510humi.toFloat() / 100);
+  SerialBT.println("---------------------------------------------------------");
 
   modbus.begin(4800, SERIAL_8N1, 16, 17);   //for seven in one
   delay(30);
@@ -193,52 +208,67 @@ void readSensor()
   smartsensor.battery = Read_Batt();
   Serial.print("Battery : "); Serial.print(smartsensor.battery); Serial.println(" V");
   SerialBT.print("Battery : "); SerialBT.print(smartsensor.battery); SerialBT.println(" V");
-  //  Serial.print("RSSI : "); Serial.println(meta.rssi);
-  //  SerialBT.print("RSSI : "); SerialBT.println(meta.rssi);
+  Serial.print("RSSI : "); Serial.println(meta.rssi);
+  SerialBT.print("RSSI : "); SerialBT.println(meta.rssi);
   Serial.println("---------------------------------------------------------");
   SerialBT.println("---------------------------------------------------------");
 }
 
-//void sendViaNBIOT() {
-//  meta = AISnb.getSignal();
-//  String json = "";
-//  json.concat("{\"Tn\":\"");
-//  json.concat(deviceToken);
-//  json.concat("\",\"atem\":");
-//  json.concat(((smartsensor.pm2510temp.toFloat() / 100) - 40));
-//  json.concat(",\"ahum\":");
-//  json.concat(smartsensor.pm2510humi.toFloat() / 100);
-//  json.concat(",\"apm2.5\":");
-//  json.concat(smartsensor.pm2510PM2_5);
-//  //  json.concat(",\"apm10\":");
-//  //  json.concat(smartsensor.pm2510PM10);
-//  json.concat(",\"smoi\":");
-//  json.concat(smartsensor.soilmoisture.toFloat() / 10);
-//  json.concat(",\"stem\":");
-//  json.concat(smartsensor.soiltemp.toFloat() / 10);
-//  //  json.concat(",\"sEC\":");
-//  //  json.concat(smartsensor.soilEC);
-//  json.concat(",\"soil_PH\":");
-//  json.concat(smartsensor.soilPH.toFloat() / 10);
-//  //  json.concat(",\"sN\":");
-//  //  json.concat(smartsensor.soilNit);
-//  //  json.concat(",\"sP\":");
-//  //  json.concat(smartsensor.soilPho);
-//  //  json.concat(",\"sK\":");
-//  //  json.concat(smartsensor.soilPot);
-//  //  json.concat(",\"racc\":");
-//  //  json.concat(smartsensor.rainaccumulate);
-//  //  json.concat(",\"rcou\":");
-//  //  json.concat(smartsensor.raincount);
-//  //  json.concat(",\"battery\":");
-//  //  json.concat(smartsensor.battery);
-//  json.concat(",\"rssi\":");
-//  json.concat(meta.rssi);
-//  json.concat("}");
-//  Serial.println(json);
-//  UDPSend udp = AISnb.sendUDPmsgStr(serverIP, serverPort, json);
-//  UDPReceive resp = AISnb.waitResponse();
-//}
+void sendViaNBIOT1() {
+  meta = AISnb.getSignal();
+  String json = "";
+  json.concat("{\"Tn\":\"");
+  json.concat(deviceToken);
+  json.concat("\",\"aTemp\":");
+  json.concat(((smartsensor.pm2510temp.toFloat() / 100) - 40));
+  json.concat(",\"aHum\":");
+  json.concat(smartsensor.pm2510humi.toFloat() / 100);
+  json.concat(",\"PM25\":");
+  json.concat(smartsensor.pm2510PM2_5);
+  json.concat(",\"PM10\":");
+  json.concat(smartsensor.pm2510PM10);
+  json.concat(",\"sMois\":");
+  json.concat(smartsensor.soilmoisture.toFloat() / 10);
+  json.concat(",\"sTemp\":");
+  json.concat(smartsensor.soiltemp.toFloat() / 10);
+  json.concat(",\"bat\":");
+  json.concat(smartsensor.battery);
+  //  json.concat(",\"rssi\":");
+  //  json.concat(meta.rssi);
+  json.concat("}");
+  Serial.println(json);
+  UDPSend udp = AISnb.sendUDPmsgStr(serverIP, serverPort, json);
+  UDPReceive resp = AISnb.waitResponse();
+}
+
+void sendViaNBIOT2() {
+  meta = AISnb.getSignal();
+  String json = "";
+  json.concat("{\"Tn\":\"");
+  json.concat(deviceToken);
+  json.concat("\",\"sEC\":");
+  json.concat(smartsensor.soilEC);
+  json.concat(",\"sPH\":");
+  json.concat(smartsensor.soilPH.toFloat() / 10);
+  json.concat(",\"sN\":");
+  json.concat(smartsensor.soilNit);
+  json.concat(",\"sP\":");
+  json.concat(smartsensor.soilPho);
+  json.concat(",\"sK\":");
+  json.concat(smartsensor.soilPot);
+  json.concat(",\"rAcc\":");
+  json.concat(smartsensor.rainaccumulate);
+  json.concat(",\"rCou\":");
+  json.concat(smartsensor.raincount);
+  //  json.concat(",\"bat\":");
+  //  json.concat(smartsensor.battery);
+  json.concat(",\"rssi\":");
+  json.concat(meta.rssi);
+  json.concat("}");
+  Serial.println(json);
+  UDPSend udp = AISnb.sendUDPmsgStr(serverIP, serverPort, json);
+  UDPReceive resp = AISnb.waitResponse();
+}
 
 float Read_Batt()
 {
@@ -258,9 +288,10 @@ float Read_Batt()
   //  vRAW = adc / 20;
   vRAW = adc;
   Serial.println(vRAW);
-  Vout = (vRAW * 3.3162) / bitRes;
+  //  Vout = (vRAW * 3.3162) / bitRes;
   //  Serial.println(Vout);
-  Vin = Vout / (R2 / (R1 + R2));
+  //  Vin = Vout / (R2 / (R1 + R2));
+  Vin = adc * 0.004353019;
   if (Vin < 0.05)
   {
     Vin = 0.0;
